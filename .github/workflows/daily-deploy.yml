@@ -8,6 +8,8 @@ on:
 permissions:
   contents: write
 
+# Refresh the public static deployment once per day.
+
 jobs:
   refresh-and-deploy:
     runs-on: ubuntu-latest
