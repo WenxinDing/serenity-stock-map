@@ -137,13 +137,34 @@ async function remoteTranslate(t) {
     if (cached) return cached;
   } catch {}
   try {
-    const q = encodeURIComponent(t),
-      r = await fetch(
-        "https://api.mymemory.translated.net/get?q=" + q + "&langpair=en|zh-CN",
-      );
-    const j = await r.json(),
-      out = j?.responseData?.translatedText;
-    if (out && out.toLowerCase() !== t.toLowerCase()) {
+    const parts = [],
+      re = /[^.!?\n]+[.!?]?/g;
+    let m,
+      buf = "";
+    while ((m = re.exec(t))) {
+      const s = m[0].trim();
+      if (!s) continue;
+      if ((buf + " " + s).trim().length > 450) {
+        if (buf) parts.push(buf.trim());
+        buf = s;
+      } else buf += (buf ? " " : "") + s;
+    }
+    if (buf) parts.push(buf.trim());
+    const out = (
+      await Promise.all(
+        parts.map(async (part) => {
+          const q = encodeURIComponent(part),
+            r = await fetch(
+              "https://api.mymemory.translated.net/get?q=" +
+                q +
+                "&langpair=en|zh-CN",
+            ),
+            j = await r.json();
+          return j?.responseData?.translatedText || part;
+        }),
+      )
+    ).join("");
+    if (out) {
       try {
         localStorage.setItem(key, out);
       } catch {}
@@ -305,9 +326,9 @@ function render() {
         "</b><div>" +
         z.summary +
         "</div><p><strong>EN:</strong> " +
-        esc(t.text).slice(0, 220) +
+        esc(t.text).slice(0, 500) +
         '…</p><p><strong>中文:</strong> <span class="translation">翻译加载中…</span>' +
-        "…</p></div>"
+        "</p></div>"
       );
     })
     .join("");
@@ -316,7 +337,7 @@ function render() {
     .forEach((e, i) => (e.onclick = () => openDetail(related[i])));
   document.querySelectorAll(".translation").forEach((el, i) =>
     remoteTranslate(related[i].text).then((x) => {
-      el.textContent = x.slice(0, 500) + (x.length > 500 ? "…" : "");
+      el.textContent = x;
     }),
   );
   perf.innerHTML = Object.keys(series)
