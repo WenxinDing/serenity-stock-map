@@ -1,4 +1,5 @@
 import json, re, time, urllib.parse, urllib.request
+from datetime import datetime, timezone
 
 archive=json.load(open('archive.json',encoding='utf-8'))
 path='translations.json'
@@ -33,9 +34,22 @@ def translate(text):
 
 # Keep scheduled runs bounded. Existing translations are never overwritten;
 # newest untranslated posts are prioritized for the next deploy.
+# This is the boundary between the historical archive (which is manually
+# reviewed) and future daily additions. The provider is never used to rewrite
+# or fill the existing historical archive.
+HISTORICAL_CUTOFF = datetime(2026, 8, 21, 20, 47, 27, tzinfo=timezone.utc)
 MAX_PER_RUN = 20
-todo=[t for t in sorted(archive, key=lambda x: x.get('createdAtISO',''), reverse=True)
-      if str(t.get('id')) not in translations][:MAX_PER_RUN]
+
+def created_at(tweet):
+    value=tweet.get('createdAtISO','').replace('/', '-').replace('Z', '+00:00')
+    try:
+        parsed=datetime.fromisoformat(value)
+        return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed
+    except ValueError:
+        return datetime.min.replace(tzinfo=timezone.utc)
+
+todo=[t for t in sorted(archive, key=created_at, reverse=True)
+      if created_at(t) > HISTORICAL_CUTOFF and str(t.get('id')) not in translations][:MAX_PER_RUN]
 for i,t in enumerate(todo, 1):
     value=translate(t.get('text',''))
     if value: translations[str(t['id'])]=value
