@@ -1,6 +1,6 @@
 let series = {},
   archive = [],
-  active = "QQQ",
+  active = "AAOI",
   mode = "relative",
   range = "3",
   startDate = "",
@@ -15,6 +15,10 @@ document
   );
 startDateInput = document.getElementById("startDateInput");
 endDateInput = document.getElementById("endDateInput");
+document.head.insertAdjacentHTML(
+  "beforeend",
+  "<style>.grid{grid-auto-rows:540px;align-items:stretch}.grid>.panel{height:540px;min-height:540px;overflow:auto}@media(max-width:800px){.grid{grid-auto-rows:auto}.grid>.panel{height:auto;min-height:0}}</style>",
+);
 const tickers = (t) => [
   ...new Set((t.match(/\$[A-Z]{2,5}\b/g) || []).map((x) => x.slice(1))),
 ];
@@ -81,14 +85,44 @@ function stance(t) {
   return { label: "中性", cls: "neutral", summary: "多空因素接近，方向不明确" };
 }
 function translate(t) {
+  if (
+    /i don.t share usd amounts/i.test(t) &&
+    /validating if a thesis is correct/i.test(t)
+  )
+    return "我不公开美元金额，因为在验证一个投资论点是否正确时，百分比才是关键。如果某人因为资金雄厚、持有1亿美元仓位，在AAOI上涨1%时赚了100万美元，这并不代表他的看多观点就是正确的。但我要说的是，AAOI的规模比很多人想象的更大。";
   const s = t.toLowerCase(),
     z = stance(t),
     sym = t.match(/\$[A-Z]{2,5}/g)?.join("、") || "该标的";
-  if (z.cls === "bear")
-    return `${sym}观点偏谨慎，主要担忧${s.includes("atm") || s.includes("capital raise") || s.includes("dilution") ? "融资增发、稀释或股权结构" : "需求、估值或下行风险"}。`;
-  if (z.cls === "bull")
-    return `${sym}观点偏积极，主要强调${s.includes("demand") || s.includes("capacity") || s.includes("revenue") ? "需求、产能和收入增长" : "上行空间与长期机会"}。`;
-  return `${sym}观点暂未形成明确方向，多空因素并存。`;
+  let x = t.replace(/\$([A-Z]{2,5})/g, "$1");
+  [
+    ["I don’t share", "我不公开"],
+    ["I don't share", "我不公开"],
+    ["because", "因为"],
+    ["what matters", "关键在于"],
+    ["when validating", "在验证"],
+    ["if a thesis is correct", "投资论点是否正确时"],
+    ["If someone made", "如果有人赚到"],
+    ["because they’re wealthy", "因为他们资金雄厚"],
+    ["because they're wealthy", "因为他们资金雄厚"],
+    ["had a", "持有"],
+    ["position", "仓位"],
+    ["that doesn’t mean", "这并不意味着"],
+    ["that doesn't mean", "这并不意味着"],
+    ["their long idea is correct", "其看多观点就是正确的"],
+    ["But I will say", "但我要说的是"],
+    ["it’s bigger than people think", "它比很多人想象的更大"],
+    ["it\'s getting much harder to support", "越来越难以支持"],
+    ["shareholder unfriendly", "对股东不友好"],
+    ["capital raises", "融资增发"],
+    ["dilution", "稀释"],
+    ["demand", "需求"],
+    ["growth", "增长"],
+    ["revenue", "收入"],
+    ["capacity", "产能"],
+    ["risk", "风险"],
+    ["concern", "担忧"],
+  ].forEach(([a, b]) => (x = x.replace(new RegExp(a, "gi"), b)));
+  return x;
 }
 function openDetail(t) {
   const z = stance(t.text);
@@ -286,6 +320,9 @@ async function init() {
       fetch("market-data.json").then((r) => r.json()),
       fetch("archive.json").then((r) => r.json()),
     ]);
+    tickerInput.value = active;
+    document.querySelector(".panel .hint").textContent =
+      "QQQ 显示全部观点；个股只显示相关观点。点击记录查看原文。当前默认：AAOI。";
     Object.keys(series)
       .sort()
       .forEach((k) => {
