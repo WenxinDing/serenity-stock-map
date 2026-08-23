@@ -92,6 +92,8 @@ function stance(t) {
   return { label: "中性", cls: "neutral", summary: "多空因素接近，方向不明确" };
 }
 function translate(t) {
+  if (/You have a small company supplying lasers for/i.test(t))
+    return "你经营的是一家规模不大的激光器供应商，客户和应用包括：为使用可插拔光模块的超大规模云厂商供应商（例如 JBL）供货；与 POET / O-Net 合作提供 ELS 和光引擎；与 Ayar 等公司合作，通过光学 I/O 实现规模扩展；以及像 GFS 这样的光子代工厂，覆盖 NPO、可插拔模块和 CPO 等各种架构。随着 Win Semi 的独立 CW 产能在结构性瓶颈期间上线，公司很可能在未来几个季度内完成纳斯达克上市。CEO 确实懂业务，而且通过在公开市场买入股票与股东保持利益一致；为了完成这些计划，公司所需的稀释幅度也较低。公司还暗示可能进行并购，这对扩大 TAM（总可服务市场）非常理想，可以参考 Lumentum 在2023年下半年收购 Cloud Light 后的表现。另一方面，MTSI 和 AAOI 可能不会实质性参与第一代 CPO 部署，因为首批参与者的范围较小；而在大规模放量之前，行业已经存在 CW 短缺。针对中国竞争对手的监管措施也会形成顺风。也许只有我这么想，但他们的整体配置几乎是理想的。最大的缺点是公司只在一家规模很小的瑞典交易所上市，这会压低估值。";
   if (
     /Very positive\. My opinion is that the optical sector underperformance/i.test(
       t,
@@ -141,7 +143,12 @@ async function remoteTranslate(t) {
   const key = "zh:v3:" + t;
   try {
     const cached = localStorage.getItem(key);
-    if (cached && !/QUERY LENGTH LIMIT|MAX ALLOWED QUERY/i.test(cached))
+    if (
+      cached &&
+      !/QUERY LENGTH LIMIT|MAX ALLOWED QUERY|MYMEMORY WARNING|AVAILABLE FREE TRANSLATIONS/i.test(
+        cached,
+      )
+    )
       return cached;
   } catch {}
   try {
@@ -181,14 +188,19 @@ async function remoteTranslate(t) {
         }),
       )
     ).join("");
-    if (out && !/QUERY LENGTH LIMIT|MAX ALLOWED QUERY/i.test(out)) {
+    if (
+      out &&
+      !/QUERY LENGTH LIMIT|MAX ALLOWED QUERY|MYMEMORY WARNING|AVAILABLE FREE TRANSLATIONS/i.test(
+        out,
+      )
+    ) {
       try {
         localStorage.setItem(key, out);
       } catch {}
       return out;
     }
   } catch {}
-  return translate(t) + "（机器翻译服务暂时不可用）";
+  return translate(t);
 }
 function openDetail(t) {
   const z = stance(t.text);
