@@ -4,6 +4,20 @@ on:
   schedule:
     - cron: "15 1 * * *"
   workflow_dispatch:
+    inputs:
+      translation_mode:
+        description: "daily only translates recent missing posts; backfill translates the full archive"
+        required: false
+        default: "daily"
+        type: choice
+        options:
+          - daily
+          - backfill
+      translation_limit:
+        description: "Daily translation count (ignored by backfill)"
+        required: false
+        default: "20"
+        type: string
 
 permissions:
   contents: write
@@ -21,7 +35,15 @@ jobs:
       - name: Refresh market data and coverage
         run: python build_market.py
       - name: Translate new archive posts
-        run: python build_translations.py
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ "${{ inputs.translation_mode }}" = "backfill" ]; then
+            python build_translations.py --backfill
+          else
+            python build_translations.py --limit "${{ inputs.translation_limit || '20' }}"
+          fi
       - name: Commit refreshed data
         run: |
           git config user.name "github-actions[bot]"

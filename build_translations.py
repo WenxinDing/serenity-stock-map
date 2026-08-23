@@ -7,26 +7,13 @@ translation service: it reads the generated translations.json file instead.
 import argparse
 import json
 import os
-import time
 import urllib.error
 import urllib.request
 
 ARCHIVE_PATH = "archive.json"
 TRANSLATIONS_PATH = "translations.json"
-MODEL = os.getenv("TRANSLATION_MODEL", "gpt-5-mini")
 DEFAULT_DAILY_LIMIT = 20
 MAX_BATCH_CHARS = 10_000
-
-INSTRUCTIONS = """You are a meticulous financial translator. Translate every
-post into complete, natural Simplified Chinese. Do not summarize, omit,
-reinterpret, soften, or add investment advice. Preserve paragraph breaks,
-bullets, numbers, URLs, @handles, and cashtags exactly. Keep stock tickers such
-as $AAOI unchanged. Use correct investment terminology: ATM means \"按市价增发\";
-ASP means \"平均售价\"; TAM means \"总可服务市场\"; LTA means \"长期供货协议\";
-CPO means \"共封装光学（CPO）\"; CW means \"连续波（CW）\". Preserve other technical
-acronyms such as EML, DFB, TIA, DSP, NPO, and 1.6T when appropriate. Return
-only a JSON object matching the requested schema. Each input id must appear
-exactly once, and translation text must contain the full translation."""
 
 
 def load_json(path, fallback):
@@ -52,67 +39,32 @@ def batches(posts):
         yield batch
 
 
-def schema_for(expected_count):
-    return {
-        "type": "object",
-        "additionalProperties": False,
-        "properties": {
-            "translations": {
-                "type": "array",
-                "minItems": expected_count,
-                "maxItems": expected_count,
-                "items": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "properties": {
-                        "id": {"type": "string"},
-                        "translation": {"type": "string"},
-                    },
-                    "required": ["id", "translation"],
-                },
-            }
-        },
-        "required": ["translations"],
-    }
-
-
-def response_text(payload):
-    for output in payload.get("output", []):
-        for content in output.get("content", []):
-            if content.get("type") == "output_text":
-                return content.get("text", "")
-    return payload.get("output_text", "")
-
-
-def translate_batch(api_key, batch):
+def translate_batch(api_token, account_id, batch):
     request_body = {
-        "model": MODEL,
-        "store": False,
-        "reasoning": {"effort": "low"},
-        "instructions": INSTRUCTIONS,
-        "input": json.dumps({"posts": batch}, ensure_ascii=False),
-        "max_output_tokens": 16_000,
-        "text": {
-            "format": {
-                "type": "json_schema",
-                "name": "post_translations",
-                "strict": True,
-                "schema": schema_for(len(batch)),
-            }
-        },
+        "text": [item["text"] for item in batch],
+        "source_lang": "en",
+        "target_lang": "zh",
     }
     request = urllib.request.Request(
-        "https://api.openai.com/v1/responses",
+        f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/@cf/meta/m2m100-1.2b",
         data=json.dumps(request_body).encode("utf-8"),
         headers={
-            "Authorization": f"Bearer {api_key}",
+            "Authorization": f"Bearer {api_token}",
             "Content-Type": "application/json",
         },
         method="POST",
     )
     with urllib.request.urlopen(request, timeout=180) as response:
         payload = json.load(response)
-    return json.loads(response_text(payload))["translations"]
+    translated = payload.get("result", {}).get("translated_text")
+    if isinstance(translated, str) and len(batch) == 1:
+        translated = [translated]
+    if not isinstance(translated, list) or len(translated) != len(batch):
+        raise ValueError("Cloudflare translation response did not match the requested posts")
+    return [
+        {"id": item["id"], "translation": text.strip()}
+        for item, text in zip(batch, translated)
+    ]
 
 
 def main():
@@ -121,9 +73,10 @@ def main():
     parser.add_argument("--limit", type=int, help="Maximum number of missing posts to translate.")
     args = parser.parse_args()
 
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        print("OPENAI_API_KEY is not configured; translation build skipped.")
+    api_token = os.getenv("CLOUDFLARE_API_TOKEN")
+    account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID")
+    if not api_token or not account_id:
+        print("Cloudflare Workers AI credentials are not configured; translation build skipped.")
         return
 
     archive = load_json(ARCHIVE_PATH, [])
@@ -142,7 +95,7 @@ def main():
     for index, batch in enumerate(batches(missing), 1):
         expected = {item["id"] for item in batch}
         try:
-            items = translate_batch(api_key, batch)
+            items = translate_batch(api_token, account_id, batch)
             received = {str(item.get("id")): item.get("translation", "").strip() for item in items}
             if set(received) != expected or not all(received.values()):
                 raise ValueError("translation response did not match the requested posts")
@@ -154,7 +107,6 @@ def main():
             print(f"batch {index}: translated {updated}/{len(missing)}")
         except (urllib.error.URLError, urllib.error.HTTPError, ValueError, json.JSONDecodeError) as error:
             print(f"batch {index}: skipped ({error})")
-            time.sleep(2)
 
     print("translations", len(translations), "updated", updated)
 
