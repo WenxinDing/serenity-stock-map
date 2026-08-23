@@ -7,8 +7,13 @@ function stance(t){
   const bull=[['strong buy',4],['i bought',3],['bought $',3],['buying opportunity',3],['great investment',3],['bullish',3],['very bullish',4],['long-term winner',3],['re-rate',2],['rerate',2],['sold out',2],['capacity sold out',2],['positive outlook',2],['hold anyway',2],['promising',2],['tailwind',2],['upside',1],['opportunity',1]];
   const bear=[['shareholder unfriendly',4],['harder to support',4],['incessant capital raise',4],['capital raises',3],['dilution',3],['dropping $',3],['dislike atm',3],['not too bullish',3],['not bullish',3],['bearish',3],['short thesis',3],['avoid',3],['sell/stop loss',3],['wouldn\'t buy',3],['overvalued',3],['too expensive',3],['weak demand',3],['margin pressure',2],['downside',2],['risk',1],['concern',1]];
   const score=rows=>rows.reduce((n,[p,w])=>n+(s.includes(p)?w:0),0), bs=score(bull), rs=score(bear);
-  if(rs>bs)return{label:'看空',cls:'bear',score:-1,summary:'偏谨慎，核心判断强调融资、需求或下行风险'};
-  if(bs>rs)return{label:'看多',cls:'bull',score:1,summary:'偏积极，核心判断强调买入、增长或基本面支撑'};
+  const operatingBull=['demand visibility','demand seems to scale','exponential','growth','projections','capacity','sold out','short supply','ramp up','revenue'];
+  const financingBear=['atm','capital raise','capital raises','share structure','shareholder unfriendly','dilution'];
+  const ob=operatingBull.filter(x=>s.includes(x)).length, fb=financingBear.filter(x=>s.includes(x)).length;
+  if(rs>bs && fb>=2)return{label:'看空·融资',cls:'bear',score:-1,summary:'经营前景可能改善，但融资、稀释或股权结构压制股东回报'};
+  if(bs>rs)return{label:'看多·基本面',cls:'bull',score:1,summary:'强调需求、增长、产能兑现或上行空间'};
+  if(ob>=2 && fb===0)return{label:'看多·基本面',cls:'bull',score:1,summary:'需求和增长叙事占主导'};
+  if(fb>=2)return{label:'看空·融资',cls:'bear',score:-1,summary:'融资或股东回报风险占主导'};
   return{label:'中性',cls:'neutral',score:0,summary:'同时包含机会与风险，或缺少明确方向'}
 }
 function openDetail(t){const z=stance(t.text);modalTitle.textContent=z.label+' · '+tickers(t.text).join(' / ');modalMeta.textContent=t.createdAtISO.replace('T',' ')+' · '+z.summary;modalText.textContent=t.text;modalLink.href='https://x.com/aleabitoreddit/status/'+t.id;modalBackdrop.classList.add('open')}
