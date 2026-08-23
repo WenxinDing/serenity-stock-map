@@ -86,6 +86,12 @@ function stance(t) {
 }
 function translate(t) {
   if (
+    /Very positive\. My opinion is that the optical sector underperformance/i.test(
+      t,
+    )
+  )
+    return "非常乐观。我的看法是，最近从 AAOI 到 SIVE 的整个光学行业表现落后得令人难以置信。需求的可见度高得离谱。AOI 表示：即使把 AOI 和 Coherent 的项目合在一起，未来三年（到2029年）也仍然很难满足客户需求。Elazar 的总经理表示，整个光学供应链都面临严重短缺，而且短缺还会持续数年。Sivers 的 CEO 也表达了同样的观点，预计未来3至5年 InP 激光器的供需仍会失衡。关于 LITE、MTSI 以及其他公司的类似评论还可以继续列举。我们甚至还没有真正进入 1.6T、NPO、CPO 的规模扩张阶段，也还没有充分看到内存与光学结合（例如 SK Hynix）的影响。然而，行业已经受到 EML/CW 以及其他上游部件的瓶颈限制，包括 PD、TIA、DSP、收发器；随着 CPO 扩大部署，FAU 等部件也很快会出现约束。我个人非常有信心地等待这一切展开，只是有些困惑：市场似乎还不会提前一两年计算未来的需求和供给。";
+  if (
     /i don.t share usd amounts/i.test(t) &&
     /validating if a thesis is correct/i.test(t)
   )
@@ -277,7 +283,7 @@ function render() {
         "</div><p><strong>EN:</strong> " +
         esc(t.text).slice(0, 220) +
         "…</p><p><strong>中文:</strong> " +
-        esc(translate(t.text)).slice(0, 220) +
+        esc(translate(t.text)).slice(0, 500) +
         "…</p></div>"
       );
     })
