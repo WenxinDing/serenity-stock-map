@@ -1,4 +1,4 @@
-import json, os, re, time, urllib.parse, urllib.request
+import json, re, time, urllib.parse, urllib.request
 
 archive=json.load(open('archive.json',encoding='utf-8'))
 path='translations.json'
@@ -31,10 +31,14 @@ def translate(text):
         except Exception: return None
     return ''.join(out) if out else None
 
-todo=[t for t in archive if str(t.get('id')) not in translations]
-for i,t in enumerate(todo):
+# Keep scheduled runs bounded. Existing translations are never overwritten;
+# newest untranslated posts are prioritized for the next deploy.
+MAX_PER_RUN = 20
+todo=[t for t in sorted(archive, key=lambda x: x.get('createdAtISO',''), reverse=True)
+      if str(t.get('id')) not in translations][:MAX_PER_RUN]
+for i,t in enumerate(todo, 1):
     value=translate(t.get('text',''))
     if value: translations[str(t['id'])]=value
-    if i%25==0: print('translated',i,'/',len(todo))
+    print('translated',i,'/',len(todo))
 json.dump(translations,open(path,'w',encoding='utf-8'),ensure_ascii=False,separators=(',',':'))
-print('translations',len(translations),'new',len(translations)-len(todo)+sum(1 for t in todo if str(t.get('id')) in translations))
+print('translations',len(translations),'attempted',len(todo))

@@ -16,13 +16,6 @@ document
   );
 startDateInput = document.getElementById("startDateInput");
 endDateInput = document.getElementById("endDateInput");
-try {
-  for (let i = localStorage.length - 1; i >= 0; i--) {
-    const k = localStorage.key(i);
-    if (k && k.startsWith("zh:") && !k.startsWith("zh:v3:"))
-      localStorage.removeItem(k);
-  }
-} catch {}
 document.head.insertAdjacentHTML(
   "beforeend",
   "<style>.grid{grid-auto-rows:540px;align-items:stretch}.grid>.panel{height:540px;min-height:540px;overflow:auto}@media(max-width:800px){.grid{grid-auto-rows:auto}.grid>.panel{height:auto;min-height:0}}</style>",
@@ -92,116 +85,6 @@ function stance(t) {
     };
   return { label: "中性", cls: "neutral", summary: "多空因素接近，方向不明确" };
 }
-function translate(t) {
-  if (/You have a small company supplying lasers for/i.test(t))
-    return "你经营的是一家规模不大的激光器供应商，客户和应用包括：为使用可插拔光模块的超大规模云厂商供应商（例如 JBL）供货；与 POET / O-Net 合作提供 ELS 和光引擎；与 Ayar 等公司合作，通过光学 I/O 实现规模扩展；以及像 GFS 这样的光子代工厂，覆盖 NPO、可插拔模块和 CPO 等各种架构。随着 Win Semi 的独立 CW 产能在结构性瓶颈期间上线，公司很可能在未来几个季度内完成纳斯达克上市。CEO 确实懂业务，而且通过在公开市场买入股票与股东保持利益一致；为了完成这些计划，公司所需的稀释幅度也较低。公司还暗示可能进行并购，这对扩大 TAM（总可服务市场）非常理想，可以参考 Lumentum 在2023年下半年收购 Cloud Light 后的表现。另一方面，MTSI 和 AAOI 可能不会实质性参与第一代 CPO 部署，因为首批参与者的范围较小；而在大规模放量之前，行业已经存在 CW 短缺。针对中国竞争对手的监管措施也会形成顺风。也许只有我这么想，但他们的整体配置几乎是理想的。最大的缺点是公司只在一家规模很小的瑞典交易所上市，这会压低估值。";
-  if (
-    /Very positive\. My opinion is that the optical sector underperformance/i.test(
-      t,
-    )
-  )
-    return "非常乐观。我的看法是，最近从 AAOI 到 SIVE 的整个光学行业表现落后得令人难以置信。需求的可见度高得离谱。AOI 表示：即使把 AOI 和 Coherent 的项目合在一起，未来三年（到2029年）也仍然很难满足客户需求。Elazar 的总经理表示，整个光学供应链都面临严重短缺，而且短缺还会持续数年。Sivers 的 CEO 也表达了同样的观点，预计未来3至5年 InP 激光器的供需仍会失衡。关于 LITE、MTSI 以及其他公司的类似评论还可以继续列举。我们甚至还没有真正进入 1.6T、NPO、CPO 的规模扩张阶段，也还没有充分看到内存与光学结合（例如 SK Hynix）的影响。然而，行业已经受到 EML/CW 以及其他上游部件的瓶颈限制，包括 PD、TIA、DSP、收发器；随着 CPO 扩大部署，FAU 等部件也很快会出现约束。我个人非常有信心地等待这一切展开，只是有些困惑：市场似乎还不会提前一两年计算未来的需求和供给。";
-  if (
-    /i don.t share usd amounts/i.test(t) &&
-    /validating if a thesis is correct/i.test(t)
-  )
-    return "我不公开美元金额，因为在验证一个投资论点是否正确时，百分比才是关键。如果某人因为资金雄厚、持有1亿美元仓位，在AAOI上涨1%时赚了100万美元，这并不代表他的看多观点就是正确的。但我要说的是，AAOI的规模比很多人想象的更大。";
-  const s = t.toLowerCase(),
-    z = stance(t),
-    sym = t.match(/\$[A-Z]{2,5}/g)?.join("、") || "该标的";
-  let x = t.replace(/\$([A-Z]{2,5})/g, "$1");
-  [
-    ["I don’t share", "我不公开"],
-    ["I don't share", "我不公开"],
-    ["because", "因为"],
-    ["what matters", "关键在于"],
-    ["when validating", "在验证"],
-    ["if a thesis is correct", "投资论点是否正确时"],
-    ["If someone made", "如果有人赚到"],
-    ["because they’re wealthy", "因为他们资金雄厚"],
-    ["because they're wealthy", "因为他们资金雄厚"],
-    ["had a", "持有"],
-    ["position", "仓位"],
-    ["that doesn’t mean", "这并不意味着"],
-    ["that doesn't mean", "这并不意味着"],
-    ["their long idea is correct", "其看多观点就是正确的"],
-    ["But I will say", "但我要说的是"],
-    ["it’s bigger than people think", "它比很多人想象的更大"],
-    ["it\'s getting much harder to support", "越来越难以支持"],
-    ["shareholder unfriendly", "对股东不友好"],
-    ["capital raises", "融资增发"],
-    ["dilution", "稀释"],
-    ["demand", "需求"],
-    ["growth", "增长"],
-    ["revenue", "收入"],
-    ["capacity", "产能"],
-    ["risk", "风险"],
-    ["concern", "担忧"],
-  ].forEach(([a, b]) => (x = x.replace(new RegExp(a, "gi"), b)));
-  return x;
-}
-/*
-  const key = "zh:v3:" + t;
-  try {
-    const cached = localStorage.getItem(key);
-    if (
-      cached &&
-      !/QUERY LENGTH LIMIT|MAX ALLOWED QUERY|MYMEMORY WARNING|AVAILABLE FREE TRANSLATIONS/i.test(
-        cached,
-      )
-    )
-      return cached;
-  } catch {}
-  try {
-    const parts = [],
-      re = /[^.!?\n]+[.!?]?/g;
-    let m,
-      buf = "";
-    while ((m = re.exec(t))) {
-      const s = m[0].trim();
-      if (!s) continue;
-      if ((buf + " " + s).trim().length > 380) {
-        if (buf) parts.push(buf.trim());
-        buf = s;
-      } else buf += (buf ? " " : "") + s;
-    }
-    if (buf) parts.push(buf.trim());
-    const safe = [];
-    for (const part of parts) {
-      if (part.length <= 380) {
-        safe.push(part);
-        continue;
-      }
-      for (let i = 0; i < part.length; i += 340)
-        safe.push(part.slice(i, i + 340));
-    }
-    const out = (
-      await Promise.all(
-        safe.map(async (part) => {
-          const q = encodeURIComponent(part),
-            r = await fetch(
-              "https://api.mymemory.translated.net/get?q=" +
-                q +
-                "&langpair=en|zh-CN",
-            ),
-            j = await r.json();
-          return j?.responseData?.translatedText || "";
-        }),
-      )
-    ).join("");
-    if (
-      out &&
-      !/QUERY LENGTH LIMIT|MAX ALLOWED QUERY|MYMEMORY WARNING|AVAILABLE FREE TRANSLATIONS/i.test(
-        out,
-      )
-    ) {
-      try {
-        localStorage.setItem(key, out);
-      } catch {}
-      return out;
-    }
-  } catch {}
-  return translate(t); */
 function openDetail(t) {
   const z = stance(t.text);
   modalTitle.textContent = z.label + " · " + tickers(t.text).join(" / ");
@@ -399,7 +282,7 @@ async function init() {
     ]);
     tickerInput.value = active;
     document.querySelector(".panel .hint").textContent =
-      "QQQ 显示全部观点；个股只显示相关观点。点击记录查看原文。当前默认：AAOI。";
+      "AAOI 仅显示相关观点；QQQ 可查看全部归档观点。点击记录查看原文与中文译文。";
     Object.keys(series)
       .sort()
       .forEach((k) => {
