@@ -8,5 +8,8 @@
 /market-data.json
   Cache-Control: no-cache, must-revalidate
 
+/translations.json
+  Cache-Control: no-cache, must-revalidate
+
 /archive.json
   Cache-Control: public, max-age=300, must-revalidate
