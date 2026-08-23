@@ -130,12 +130,36 @@ function translate(t) {
   ].forEach(([a, b]) => (x = x.replace(new RegExp(a, "gi"), b)));
   return x;
 }
+async function remoteTranslate(t) {
+  const key = "zh:" + t;
+  try {
+    const cached = localStorage.getItem(key);
+    if (cached) return cached;
+  } catch {}
+  try {
+    const q = encodeURIComponent(t),
+      r = await fetch(
+        "https://api.mymemory.translated.net/get?q=" + q + "&langpair=en|zh-CN",
+      );
+    const j = await r.json(),
+      out = j?.responseData?.translatedText;
+    if (out && out.toLowerCase() !== t.toLowerCase()) {
+      try {
+        localStorage.setItem(key, out);
+      } catch {}
+      return out;
+    }
+  } catch {}
+  return translate(t) + "（机器翻译服务暂时不可用）";
+}
 function openDetail(t) {
   const z = stance(t.text);
   modalTitle.textContent = z.label + " · " + tickers(t.text).join(" / ");
   modalMeta.textContent = t.createdAtISO.replace("T", " ") + " · " + z.summary;
-  modalText.textContent =
-    t.text + "\n\n中文翻译（自动）：\n" + translate(t.text);
+  modalText.textContent = t.text + "\n\n中文翻译（加载中）：";
+  remoteTranslate(t.text).then((x) => {
+    modalText.textContent = t.text + "\n\n中文翻译：\n" + x;
+  });
   modalLink.href = "https://x.com/aleabitoreddit/status/" + t.id;
   modalBackdrop.classList.add("open");
 }
@@ -282,8 +306,7 @@ function render() {
         z.summary +
         "</div><p><strong>EN:</strong> " +
         esc(t.text).slice(0, 220) +
-        "…</p><p><strong>中文:</strong> " +
-        esc(translate(t.text)).slice(0, 500) +
+        '…</p><p><strong>中文:</strong> <span class="translation">翻译加载中…</span>' +
         "…</p></div>"
       );
     })
@@ -291,6 +314,11 @@ function render() {
   document
     .querySelectorAll(".event")
     .forEach((e, i) => (e.onclick = () => openDetail(related[i])));
+  document.querySelectorAll(".translation").forEach((el, i) =>
+    remoteTranslate(related[i].text).then((x) => {
+      el.textContent = x.slice(0, 500) + (x.length > 500 ? "…" : "");
+    }),
+  );
   perf.innerHTML = Object.keys(series)
     .map((k) => {
       const v = series[k].filter((x) => x[0] >= from && x[0] <= to),
