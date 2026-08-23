@@ -1,11 +1,343 @@
-let series={},archive=[],active='QQQ',mode='relative',range='3',startDate='',endDate='',startDateInput,endDateInput;
-document.querySelector('.controls').insertAdjacentHTML('beforeend','<label>开始 <input id="startDateInput" type="date"></label><label>结束 <input id="endDateInput" type="date"></label>');
-startDateInput=document.getElementById('startDateInput');endDateInput=document.getElementById('endDateInput');
-const tickers=t=>[...new Set((t.match(/\$[A-Z]{2,5}\b/g)||[]).map(x=>x.slice(1)))];
-const esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-function stance(t){const s=t.toLowerCase(),bull=['strong buy','i bought','bought $','buying opportunity','great investment','bullish','very bullish','long-term winner','re-rate','rerate','sold out','capacity sold out','positive outlook','promising','tailwind','upside','opportunity'],bear=['shareholder unfriendly','harder to support','incessant capital raise','capital raises','dilution','dropping $','dislike atm','not too bullish','not bullish','bearish','short thesis','avoid','sell/stop loss',"wouldn't buy",'overvalued','too expensive','weak demand','margin pressure','downside','risk','concern'],bs=bull.reduce((n,x)=>n+(s.includes(x)?1:0),0),rs=bear.reduce((n,x)=>n+(s.includes(x)?1:0),0);if(rs>bs)return{label:rs>=4?'强看空':'中看空',cls:'bear',summary:'负面因素占主导，强调下行风险'};if(bs>rs)return{label:bs>=4?'强看多':'中看多',cls:'bull',summary:'正面因素占主导，强调增长、需求或上行空间'};return{label:'中性',cls:'neutral',summary:'多空因素接近，方向不明确'};}
-function translate(t){const s=t.toLowerCase(),z=stance(t),sym=t.match(/\$[A-Z]{2,5}/g)?.join('、')||'该标的';if(z.cls==='bear')return `${sym}观点偏谨慎，主要担忧${s.includes('atm')||s.includes('capital raise')||s.includes('dilution')?'融资增发、稀释或股权结构':'需求、估值或下行风险'}。`;if(z.cls==='bull')return `${sym}观点偏积极，主要强调${s.includes('demand')||s.includes('capacity')||s.includes('revenue')?'需求、产能和收入增长':'上行空间与长期机会'}。`;return `${sym}观点暂未形成明确方向，多空因素并存。`;}
-function openDetail(t){const z=stance(t.text);modalTitle.textContent=z.label+' · '+tickers(t.text).join(' / ');modalMeta.textContent=t.createdAtISO.replace('T',' ')+' · '+z.summary;modalText.textContent=t.text+'\n\n中文翻译（自动）：\n'+translate(t.text);modalLink.href='https://x.com/aleabitoreddit/status/'+t.id;modalBackdrop.classList.add('open');}
-function bounds(){let from=startDate,to=endDate;if(!from&&!to&&range!=='all'){const d=new Date();d.setMonth(d.getMonth()-Number(range));from=d.toISOString().slice(0,10);}return{from:from||'0000-00-00',to:to||'9999-12-31'};}
-function render(){const full=series[active]||[],{from,to}=bounds(),s=full.filter(v=>v[0]>=from&&v[0]<=to);if(!s.length){chart.innerHTML='<div style="padding:24px;color:#f2b65d">该标的暂无可用日线行情。</div>';return;}const dates=s.map(v=>v[0]),base=s[0][1],y=mode==='relative'?s.map(v=>+(v[1]/base*100).toFixed(2)):s.map(v=>v[1]),related=(active==='QQQ'?archive:archive.filter(t=>tickers(t.text).includes(active))).filter(t=>{const d=t.createdAtISO.slice(0,10);return d>=from&&d<=to;}),marks=related.map(t=>{const d=t.createdAtISO.slice(0,10),p=s.find(v=>v[0]>=d);return{t,z:stance(t.text),day:d,x:t.createdAtISO,a:p?p[1]:null};}).filter(v=>v.a!=null),groups={};marks.forEach(m=>(groups[m.day]??=[]).push(m));Object.values(groups).forEach(g=>g.forEach((m,i)=>m.y=m.a+(i-(g.length-1)/2)*Math.max((s.at(-1)[1]-base)*.035,base*.012)));const val=v=>mode==='relative'?+(v/base*100).toFixed(2):v,traces=[{x:dates,y,type:'scatter',mode:'lines',line:{color:'#64d8cb',width:2.5},hoverinfo:'skip'}];marks.forEach(m=>traces.push({x:[m.day,m.x],y:[val(m.a),val(m.y)],type:'scatter',mode:'lines',line:{color:m.z.cls==='bull'?'#64d8cb':m.z.cls==='bear'?'#f1789d':'#f2b65d',width:1},hoverinfo:'skip'}));traces.push({x:marks.map(m=>m.x),y:marks.map(m=>val(m.y)),type:'scatter',mode:'markers+text',text:marks.map(m=>m.z.label),textposition:'top center',textfont:{size:13,color:'#edf3fa'},marker:{size:15,line:{color:'#0b1018',width:2},color:marks.map(m=>m.z.cls==='bull'?'#64d8cb':m.z.cls==='bear'?'#f1789d':'#f2b65d')},customdata:marks.map(m=>m.t.id),hovertemplate:'<b>%{text}</b><br>%{x|%Y-%m-%d %H:%M} UTC<br>ID: %{customdata}<extra></extra>'});Plotly.newPlot('chart',traces,{margin:{l:55,r:20,t:35,b:42},paper_bgcolor:'#111a26',plot_bgcolor:'#111a26',font:{color:'#edf3fa'},xaxis:{gridcolor:'#263548',type:'date'},yaxis:{gridcolor:'#263548',title:mode==='relative'?'指数（起点=100）':'价格（USD）'},showlegend:false});chart.on('plotly_click',e=>{const q=e.points.find(p=>p.customdata),m=q&&marks.find(v=>v.t.id===q.customdata);if(m)openDetail(m.t);});timeline.innerHTML=related.map(t=>{const z=stance(t.text);return'<div class="event"><span class="date">'+t.createdAtISO.slice(0,16).replace('T',' ')+'</span><span class="ticker">'+tickers(t.text).join(' ')+'</span> <b class="'+z.cls+'">'+z.label+'</b><div>'+z.summary+'</div><p><strong>EN:</strong> '+esc(t.text).slice(0,220)+'…</p><p><strong>中文:</strong> '+esc(translate(t.text)).slice(0,220)+'…</p></div>';}).join('');document.querySelectorAll('.event').forEach((e,i)=>e.onclick=()=>openDetail(related[i]));perf.innerHTML=Object.keys(series).map(k=>{const v=series[k].filter(x=>x[0]>=from&&x[0]<=to),p=v.length?v.at(-1)[1]/v[0][1]-1:0;return'<tr><td><button data-sym="'+k+'" style="background:none;border:0;color:#edf3fa;cursor:pointer"><b>'+k+'</b></button></td><td>'+archive.filter(t=>tickers(t.text).includes(k)).length+'</td><td class="'+(p>=0?'pos':'neg')+'">'+(p>=0?'+':'')+(p*100).toFixed(1)+'%</td></tr>';}).join('');document.querySelectorAll('[data-sym]').forEach(b=>b.onclick=()=>{active=b.dataset.sym;tickerInput.value=active;render();});}
-async function init(){try{[series,archive]=await Promise.all([fetch('market-data.json').then(r=>r.json()),fetch('archive.json').then(r=>r.json())]);Object.keys(series).sort().forEach(k=>{const o=document.createElement('option');o.value=k;tickerOptions.appendChild(o);});tickerInput.addEventListener('change',e=>{const k=e.target.value.toUpperCase();if(series[k]){active=k;e.target.value=k;render();}});tickerInput.addEventListener('keydown',e=>{if(e.key==='Enter')e.target.dispatchEvent(new Event('change'));});document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{mode=b.dataset.mode;document.querySelectorAll('[data-mode]').forEach(x=>x.classList.toggle('active',x===b));render();});rangeSelect.onchange=e=>{range=e.target.value;startDate='';endDate='';render();};startDateInput.onchange=e=>{startDate=e.target.value;range='custom';render();};endDateInput.onchange=e=>{endDate=e.target.value;range='custom';render();};render();}catch(e){chart.textContent='数据加载失败，请使用本地 HTTP 服务打开。';console.error(e);}}closeModal.onclick=()=>modalBackdrop.classList.remove('open');modalBackdrop.onclick=e=>{if(e.target===modalBackdrop)e.currentTarget.classList.remove('open')};init();
+let series = {},
+  archive = [],
+  active = "QQQ",
+  mode = "relative",
+  range = "3",
+  startDate = "",
+  endDate = "",
+  startDateInput,
+  endDateInput;
+document
+  .querySelector(".controls")
+  .insertAdjacentHTML(
+    "beforeend",
+    '<label>开始 <input id="startDateInput" type="date"></label><label>结束 <input id="endDateInput" type="date"></label>',
+  );
+startDateInput = document.getElementById("startDateInput");
+endDateInput = document.getElementById("endDateInput");
+const tickers = (t) => [
+  ...new Set((t.match(/\$[A-Z]{2,5}\b/g) || []).map((x) => x.slice(1))),
+];
+const esc = (t) =>
+  String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+function stance(t) {
+  const s = t.toLowerCase(),
+    bull = [
+      "strong buy",
+      "i bought",
+      "bought $",
+      "buying opportunity",
+      "great investment",
+      "bullish",
+      "very bullish",
+      "long-term winner",
+      "re-rate",
+      "rerate",
+      "sold out",
+      "capacity sold out",
+      "positive outlook",
+      "promising",
+      "tailwind",
+      "upside",
+      "opportunity",
+    ],
+    bear = [
+      "shareholder unfriendly",
+      "harder to support",
+      "incessant capital raise",
+      "capital raises",
+      "dilution",
+      "dropping $",
+      "dislike atm",
+      "not too bullish",
+      "not bullish",
+      "bearish",
+      "short thesis",
+      "avoid",
+      "sell/stop loss",
+      "wouldn't buy",
+      "overvalued",
+      "too expensive",
+      "weak demand",
+      "margin pressure",
+      "downside",
+      "risk",
+      "concern",
+    ],
+    bs = bull.reduce((n, x) => n + (s.includes(x) ? 1 : 0), 0),
+    rs = bear.reduce((n, x) => n + (s.includes(x) ? 1 : 0), 0);
+  if (rs > bs)
+    return {
+      label: rs >= 4 ? "强看空" : "中看空",
+      cls: "bear",
+      summary: "负面因素占主导，强调下行风险",
+    };
+  if (bs > rs)
+    return {
+      label: bs >= 4 ? "强看多" : "中看多",
+      cls: "bull",
+      summary: "正面因素占主导，强调增长、需求或上行空间",
+    };
+  return { label: "中性", cls: "neutral", summary: "多空因素接近，方向不明确" };
+}
+function translate(t) {
+  const s = t.toLowerCase(),
+    z = stance(t),
+    sym = t.match(/\$[A-Z]{2,5}/g)?.join("、") || "该标的";
+  if (z.cls === "bear")
+    return `${sym}观点偏谨慎，主要担忧${s.includes("atm") || s.includes("capital raise") || s.includes("dilution") ? "融资增发、稀释或股权结构" : "需求、估值或下行风险"}。`;
+  if (z.cls === "bull")
+    return `${sym}观点偏积极，主要强调${s.includes("demand") || s.includes("capacity") || s.includes("revenue") ? "需求、产能和收入增长" : "上行空间与长期机会"}。`;
+  return `${sym}观点暂未形成明确方向，多空因素并存。`;
+}
+function openDetail(t) {
+  const z = stance(t.text);
+  modalTitle.textContent = z.label + " · " + tickers(t.text).join(" / ");
+  modalMeta.textContent = t.createdAtISO.replace("T", " ") + " · " + z.summary;
+  modalText.textContent =
+    t.text + "\n\n中文翻译（自动）：\n" + translate(t.text);
+  modalLink.href = "https://x.com/aleabitoreddit/status/" + t.id;
+  modalBackdrop.classList.add("open");
+}
+function bounds() {
+  let from = startDate,
+    to = endDate;
+  if (!from && !to && range !== "all") {
+    const d = new Date();
+    d.setMonth(d.getMonth() - Number(range));
+    from = d.toISOString().slice(0, 10);
+  }
+  return { from: from || "0000-00-00", to: to || "9999-12-31" };
+}
+function render() {
+  const full = series[active] || [],
+    { from, to } = bounds(),
+    s = full.filter((v) => v[0] >= from && v[0] <= to);
+  if (!s.length) {
+    chart.innerHTML =
+      '<div style="padding:24px;color:#f2b65d">该标的暂无可用日线行情。</div>';
+    return;
+  }
+  const dates = s.map((v) => v[0]),
+    base = s[0][1],
+    y =
+      mode === "relative"
+        ? s.map((v) => +((v[1] / base) * 100).toFixed(2))
+        : s.map((v) => v[1]),
+    related = (
+      active === "QQQ"
+        ? archive
+        : archive.filter((t) => tickers(t.text).includes(active))
+    ).filter((t) => {
+      const d = t.createdAtISO.slice(0, 10);
+      return d >= from && d <= to;
+    }),
+    marks = related
+      .map((t) => {
+        const d = t.createdAtISO.slice(0, 10),
+          p = s.find((v) => v[0] >= d);
+        return {
+          t,
+          z: stance(t.text),
+          day: d,
+          x: t.createdAtISO,
+          a: p ? p[1] : null,
+        };
+      })
+      .filter((v) => v.a != null),
+    groups = {};
+  marks.forEach((m) => (groups[m.day] ??= []).push(m));
+  Object.values(groups).forEach((g) =>
+    g.forEach(
+      (m, i) =>
+        (m.y =
+          m.a +
+          (i - (g.length - 1) / 2) *
+            Math.max((s.at(-1)[1] - base) * 0.035, base * 0.012)),
+    ),
+  );
+  const val = (v) => (mode === "relative" ? +((v / base) * 100).toFixed(2) : v),
+    traces = [
+      {
+        x: dates,
+        y,
+        type: "scatter",
+        mode: "lines",
+        line: { color: "#64d8cb", width: 2.5 },
+        hoverinfo: "skip",
+      },
+    ];
+  marks.forEach((m) =>
+    traces.push({
+      x: [m.day, m.x],
+      y: [val(m.a), val(m.y)],
+      type: "scatter",
+      mode: "lines",
+      line: {
+        color:
+          m.z.cls === "bull"
+            ? "#64d8cb"
+            : m.z.cls === "bear"
+              ? "#f1789d"
+              : "#f2b65d",
+        width: 1,
+      },
+      hoverinfo: "skip",
+    }),
+  );
+  traces.push({
+    x: marks.map((m) => m.x),
+    y: marks.map((m) => val(m.y)),
+    type: "scatter",
+    mode: "markers+text",
+    text: marks.map((m) => m.z.label),
+    textposition: marks.map((m, i) => (i % 2 ? "bottom center" : "top center")),
+    textfont: { size: 11, color: "#edf3fa" },
+    cliponaxis: false,
+    marker: {
+      size: 15,
+      line: { color: "#0b1018", width: 2 },
+      color: marks.map((m) =>
+        m.z.cls === "bull"
+          ? "#64d8cb"
+          : m.z.cls === "bear"
+            ? "#f1789d"
+            : "#f2b65d",
+      ),
+    },
+    customdata: marks.map((m) => m.t.id),
+    hovertemplate:
+      "<b>%{text}</b><br>%{x|%Y-%m-%d %H:%M} UTC<br>ID: %{customdata}<extra></extra>",
+  });
+  Plotly.newPlot("chart", traces, {
+    margin: { l: 55, r: 20, t: 35, b: 42 },
+    paper_bgcolor: "#111a26",
+    plot_bgcolor: "#111a26",
+    font: { color: "#edf3fa" },
+    xaxis: { gridcolor: "#263548", type: "date" },
+    yaxis: {
+      gridcolor: "#263548",
+      title: mode === "relative" ? "指数（起点=100）" : "价格（USD）",
+    },
+    showlegend: false,
+  });
+  chart.on("plotly_click", (e) => {
+    const q = e.points.find((p) => p.customdata),
+      m = q && marks.find((v) => v.t.id === q.customdata);
+    if (m) openDetail(m.t);
+  });
+  timeline.innerHTML = related
+    .map((t) => {
+      const z = stance(t.text);
+      return (
+        '<div class="event"><span class="date">' +
+        t.createdAtISO.slice(0, 16).replace("T", " ") +
+        '</span><span class="ticker">' +
+        tickers(t.text).join(" ") +
+        '</span> <b class="' +
+        z.cls +
+        '">' +
+        z.label +
+        "</b><div>" +
+        z.summary +
+        "</div><p><strong>EN:</strong> " +
+        esc(t.text).slice(0, 220) +
+        "…</p><p><strong>中文:</strong> " +
+        esc(translate(t.text)).slice(0, 220) +
+        "…</p></div>"
+      );
+    })
+    .join("");
+  document
+    .querySelectorAll(".event")
+    .forEach((e, i) => (e.onclick = () => openDetail(related[i])));
+  perf.innerHTML = Object.keys(series)
+    .map((k) => {
+      const v = series[k].filter((x) => x[0] >= from && x[0] <= to),
+        p = v.length ? v.at(-1)[1] / v[0][1] - 1 : 0;
+      return (
+        '<tr><td><button data-sym="' +
+        k +
+        '" style="background:none;border:0;color:#edf3fa;cursor:pointer"><b>' +
+        k +
+        "</b></button></td><td>" +
+        archive.filter((t) => tickers(t.text).includes(k)).length +
+        '</td><td class="' +
+        (p >= 0 ? "pos" : "neg") +
+        '">' +
+        (p >= 0 ? "+" : "") +
+        (p * 100).toFixed(1) +
+        "%</td></tr>"
+      );
+    })
+    .join("");
+  document.querySelectorAll("[data-sym]").forEach(
+    (b) =>
+      (b.onclick = () => {
+        active = b.dataset.sym;
+        tickerInput.value = active;
+        render();
+      }),
+  );
+}
+async function init() {
+  try {
+    [series, archive] = await Promise.all([
+      fetch("market-data.json").then((r) => r.json()),
+      fetch("archive.json").then((r) => r.json()),
+    ]);
+    Object.keys(series)
+      .sort()
+      .forEach((k) => {
+        const o = document.createElement("option");
+        o.value = k;
+        tickerOptions.appendChild(o);
+      });
+    tickerInput.addEventListener("change", (e) => {
+      const k = e.target.value.toUpperCase();
+      if (series[k]) {
+        active = k;
+        e.target.value = k;
+        render();
+      }
+    });
+    tickerInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") e.target.dispatchEvent(new Event("change"));
+    });
+    document.querySelectorAll("[data-mode]").forEach(
+      (b) =>
+        (b.onclick = () => {
+          mode = b.dataset.mode;
+          document
+            .querySelectorAll("[data-mode]")
+            .forEach((x) => x.classList.toggle("active", x === b));
+          render();
+        }),
+    );
+    rangeSelect.onchange = (e) => {
+      range = e.target.value;
+      startDate = "";
+      endDate = "";
+      render();
+    };
+    startDateInput.onchange = (e) => {
+      startDate = e.target.value;
+      range = "custom";
+      render();
+    };
+    endDateInput.onchange = (e) => {
+      endDate = e.target.value;
+      range = "custom";
+      render();
+    };
+    render();
+  } catch (e) {
+    chart.textContent = "数据加载失败，请使用本地 HTTP 服务打开。";
+    console.error(e);
+  }
+}
+closeModal.onclick = () => modalBackdrop.classList.remove("open");
+modalBackdrop.onclick = (e) => {
+  if (e.target === modalBackdrop) e.currentTarget.classList.remove("open");
+};
+init();
