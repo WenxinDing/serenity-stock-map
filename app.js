@@ -15,6 +15,13 @@ document
   );
 startDateInput = document.getElementById("startDateInput");
 endDateInput = document.getElementById("endDateInput");
+try {
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith("zh:") && !k.startsWith("zh:v3:"))
+      localStorage.removeItem(k);
+  }
+} catch {}
 document.head.insertAdjacentHTML(
   "beforeend",
   "<style>.grid{grid-auto-rows:540px;align-items:stretch}.grid>.panel{height:540px;min-height:540px;overflow:auto}@media(max-width:800px){.grid{grid-auto-rows:auto}.grid>.panel{height:auto;min-height:0}}</style>",
@@ -131,10 +138,11 @@ function translate(t) {
   return x;
 }
 async function remoteTranslate(t) {
-  const key = "zh:" + t;
+  const key = "zh:v3:" + t;
   try {
     const cached = localStorage.getItem(key);
-    if (cached) return cached;
+    if (cached && !/QUERY LENGTH LIMIT|MAX ALLOWED QUERY/i.test(cached))
+      return cached;
   } catch {}
   try {
     const parts = [],
@@ -144,15 +152,24 @@ async function remoteTranslate(t) {
     while ((m = re.exec(t))) {
       const s = m[0].trim();
       if (!s) continue;
-      if ((buf + " " + s).trim().length > 450) {
+      if ((buf + " " + s).trim().length > 380) {
         if (buf) parts.push(buf.trim());
         buf = s;
       } else buf += (buf ? " " : "") + s;
     }
     if (buf) parts.push(buf.trim());
+    const safe = [];
+    for (const part of parts) {
+      if (part.length <= 380) {
+        safe.push(part);
+        continue;
+      }
+      for (let i = 0; i < part.length; i += 340)
+        safe.push(part.slice(i, i + 340));
+    }
     const out = (
       await Promise.all(
-        parts.map(async (part) => {
+        safe.map(async (part) => {
           const q = encodeURIComponent(part),
             r = await fetch(
               "https://api.mymemory.translated.net/get?q=" +
@@ -160,11 +177,11 @@ async function remoteTranslate(t) {
                 "&langpair=en|zh-CN",
             ),
             j = await r.json();
-          return j?.responseData?.translatedText || part;
+          return j?.responseData?.translatedText || "";
         }),
       )
     ).join("");
-    if (out) {
+    if (out && !/QUERY LENGTH LIMIT|MAX ALLOWED QUERY/i.test(out)) {
       try {
         localStorage.setItem(key, out);
       } catch {}
