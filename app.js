@@ -232,7 +232,7 @@ async function init() {
   try {
     [series, archive, translations] = await Promise.all([
       fetch("market-data.json").then((r) => r.json()),
-      fetch("archive.json").then((r) => r.json()),
+      fetch("archive-ui.json").then((r) => r.json()),
       fetch("translations.json").then((r) => r.json()).catch(() => ({})),
     ]);
     archive.forEach((post) => {

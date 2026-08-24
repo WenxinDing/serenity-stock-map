@@ -13,3 +13,6 @@
 
 /archive.json
   Cache-Control: public, max-age=300, must-revalidate
+
+/archive-ui.json
+  Cache-Control: public, max-age=300, must-revalidate
