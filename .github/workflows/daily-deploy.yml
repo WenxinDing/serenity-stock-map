@@ -55,6 +55,7 @@ jobs:
           python build_market.py
           python build_archive_ui.py
       - name: Translate new archive posts
+        continue-on-error: true
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
