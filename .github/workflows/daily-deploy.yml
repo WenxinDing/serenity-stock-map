@@ -28,8 +28,22 @@ permissions:
 # Refresh the public static deployment once per day.
 
 jobs:
+  deploy-pages:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: serenity-stock-map
+          branch: main
+          directory: .
+
   refresh-and-deploy:
-    if: github.actor != 'github-actions[bot]'
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -55,11 +69,3 @@ jobs:
           git add market-data.json coverage.json translations.json
           git diff --cached --quiet || git commit -m "chore: refresh daily market data"
           git push
-      - name: Deploy to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: serenity-stock-map
-          branch: main
-          directory: .
