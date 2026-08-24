@@ -76,8 +76,7 @@ def main():
     api_token = os.getenv("CLOUDFLARE_API_TOKEN")
     account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID")
     if not api_token or not account_id:
-        print("Cloudflare Workers AI credentials are not configured; translation build skipped.")
-        return
+        raise RuntimeError("Cloudflare Workers AI credentials are not configured")
 
     archive = load_json(ARCHIVE_PATH, [])
     translations = load_json(TRANSLATIONS_PATH, {})
@@ -94,19 +93,16 @@ def main():
     updated = 0
     for index, batch in enumerate(batches(missing), 1):
         expected = {item["id"] for item in batch}
-        try:
-            items = translate_batch(api_token, account_id, batch)
-            received = {str(item.get("id")): item.get("translation", "").strip() for item in items}
-            if set(received) != expected or not all(received.values()):
-                raise ValueError("translation response did not match the requested posts")
-            translations.update(received)
-            updated += len(batch)
-            with open(TRANSLATIONS_PATH, "w", encoding="utf-8") as handle:
-                json.dump(translations, handle, ensure_ascii=False, indent=2)
-                handle.write("\n")
-            print(f"batch {index}: translated {updated}/{len(missing)}")
-        except (urllib.error.URLError, urllib.error.HTTPError, ValueError, json.JSONDecodeError) as error:
-            print(f"batch {index}: skipped ({error})")
+        items = translate_batch(api_token, account_id, batch)
+        received = {str(item.get("id")): item.get("translation", "").strip() for item in items}
+        if set(received) != expected or not all(received.values()):
+            raise ValueError("translation response did not match the requested posts")
+        translations.update(received)
+        updated += len(batch)
+        with open(TRANSLATIONS_PATH, "w", encoding="utf-8") as handle:
+            json.dump(translations, handle, ensure_ascii=False, indent=2)
+            handle.write("\n")
+        print(f"batch {index}: translated {updated}/{len(missing)}")
 
     print("translations", len(translations), "updated", updated)
 
