@@ -1,6 +1,9 @@
 name: Daily data refresh and Cloudflare deploy
 
 on:
+  push:
+    branches:
+      - main
   schedule:
     - cron: "15 1 * * *"
   workflow_dispatch:
@@ -26,6 +29,7 @@ permissions:
 
 jobs:
   refresh-and-deploy:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
